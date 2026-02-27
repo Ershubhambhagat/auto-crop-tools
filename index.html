@@ -216,27 +216,26 @@
             <div class="editor-canvas-container" id="editor-canvas-container">
                 <div class="canvas-wrapper" id="canvas-wrapper">
                     <canvas id="editor-canvas"></canvas>
-                    <div id="crop-overlay">
-                        <svg id="crop-svg" class="crop-svg">
-                            <!-- Grid overlay -->
-                            <g id="grid-overlay" class="grid-overlay" style="display:none;">
-                                <line class="grid-line" id="grid-h1"/>
-                                <line class="grid-line" id="grid-h2"/>
-                                <line class="grid-line" id="grid-v1"/>
-                                <line class="grid-line" id="grid-v2"/>
-                            </g>
-                            <polygon id="crop-polygon" class="crop-polygon"/>
-                            <line id="crop-line-0" class="crop-line"/>
-                            <line id="crop-line-1" class="crop-line"/>
-                            <line id="crop-line-2" class="crop-line"/>
-                            <line id="crop-line-3" class="crop-line"/>
-                            <circle id="crop-handle-0" class="crop-handle" r="12"/>
-                            <circle id="crop-handle-1" class="crop-handle" r="12"/>
-                            <circle id="crop-handle-2" class="crop-handle" r="12"/>
-                            <circle id="crop-handle-3" class="crop-handle" r="12"/>
-                        </svg>
-                    </div>
                 </div>
+                <!-- Crop overlay moved outside canvas-wrapper to cover full container -->
+                <svg id="crop-svg" class="crop-svg">
+                    <!-- Grid overlay -->
+                    <g id="grid-overlay" class="grid-overlay" style="display:none;">
+                        <line class="grid-line" id="grid-h1"/>
+                        <line class="grid-line" id="grid-h2"/>
+                        <line class="grid-line" id="grid-v1"/>
+                        <line class="grid-line" id="grid-v2"/>
+                    </g>
+                    <polygon id="crop-polygon" class="crop-polygon"/>
+                    <line id="crop-line-0" class="crop-line"/>
+                    <line id="crop-line-1" class="crop-line"/>
+                    <line id="crop-line-2" class="crop-line"/>
+                    <line id="crop-line-3" class="crop-line"/>
+                    <circle id="crop-handle-0" class="crop-handle" r="8"/>
+                    <circle id="crop-handle-1" class="crop-handle" r="8"/>
+                    <circle id="crop-handle-2" class="crop-handle" r="8"/>
+                    <circle id="crop-handle-3" class="crop-handle" r="8"/>
+                </svg>
                 <div id="loading-overlay" class="loading-overlay">
                     <div class="spinner"></div>
                     <p id="loading-text">Detecting edges...</p>

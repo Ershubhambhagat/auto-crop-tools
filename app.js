@@ -22,6 +22,7 @@ const state = {
     rotation: 0,
     zoom: 1,
     panOffset: { x: 0, y: 0 },
+    dragStartZoom: undefined,
     isDragging: false,
     lastPinchDistance: 0,
     gridVisible: false,
@@ -505,6 +506,10 @@ function loadImage(dataUrl) {
                 if (!state.cvReady) {
                     elements.loadingOverlay.classList.remove('active');
                     setDefaultCropArea();
+                    requestAnimationFrame(() => {
+                        updateCanvasOffset();
+                        updateCropOverlay();
+                    });
                     elements.detectionStatus.textContent = 'Manual adjustment only';
                     elements.detectionStatus.className = 'detection-status warning';
                 }
@@ -561,8 +566,16 @@ function setupEditor() {
     ctx.restore();
 
     state.originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    updateCanvasOffset();
-    updateZoomDisplay();
+
+    // Wait for layout to complete before calculating offset
+    requestAnimationFrame(() => {
+        updateCanvasOffset();
+        updateZoomDisplay();
+        // If crop corners exist, update the overlay
+        if (state.cropCorners.length === 4) {
+            updateCropOverlay();
+        }
+    });
 
     elements.imageDimensions.textContent = `${Math.round(drawWidth)} x ${Math.round(drawHeight)}`;
 }
@@ -573,9 +586,19 @@ function updateCanvasOffset() {
     const containerRect = container.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
 
+    // Calculate offset from container edge to canvas edge
+    let offsetX = canvasRect.left - containerRect.left;
+    let offsetY = canvasRect.top - containerRect.top;
+
+    // Ensure valid offsets (fallback to center calculation if invalid)
+    if (isNaN(offsetX) || isNaN(offsetY) || offsetX < 0 || offsetY < 0) {
+        offsetX = (containerRect.width - canvas.width) / 2;
+        offsetY = (containerRect.height - canvas.height) / 2;
+    }
+
     state.canvasOffset = {
-        x: canvasRect.left - containerRect.left,
-        y: canvasRect.top - containerRect.top
+        x: Math.max(0, offsetX),
+        y: Math.max(0, offsetY)
     };
 }
 
@@ -817,38 +840,50 @@ function detectEdges() {
     elements.loadingOverlay.classList.add('active');
     showProgress('Detecting edges...', 10);
 
-    setTimeout(() => {
-        try {
-            showProgress('Analyzing image...', 30);
-            const result = findDocumentContour();
-            showProgress('Processing...', 70);
+    // Use requestAnimationFrame to ensure layout is complete
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            try {
+                showProgress('Analyzing image...', 30);
+                const result = findDocumentContour();
+                showProgress('Processing...', 70);
 
-            if (result && result.length === 4) {
-                state.cropCorners = result;
-                // Ensure detected corners are within canvas bounds
-                clampCornersToCanvas();
-                elements.detectionStatus.textContent = 'Document detected - adjust if needed';
-                elements.detectionStatus.className = 'detection-status success';
-            } else {
+                if (result && result.length === 4) {
+                    state.cropCorners = result;
+                    // Ensure detected corners are within canvas bounds
+                    clampCornersToCanvas();
+                    elements.detectionStatus.textContent = 'Document detected - adjust if needed';
+                    elements.detectionStatus.className = 'detection-status success';
+                } else {
+                    setDefaultCropArea();
+                    elements.detectionStatus.textContent = 'No document found - adjust manually';
+                    elements.detectionStatus.className = 'detection-status warning';
+                }
+
+                showProgress('Complete', 100);
+
+                // Update canvas offset and crop overlay after a small delay
+                requestAnimationFrame(() => {
+                    updateCanvasOffset();
+                    updateCropOverlay();
+                });
+            } catch (err) {
+                console.error('Detection error:', err);
                 setDefaultCropArea();
-                elements.detectionStatus.textContent = 'No document found - adjust manually';
+                elements.detectionStatus.textContent = 'Detection error - adjust manually';
                 elements.detectionStatus.className = 'detection-status warning';
+
+                requestAnimationFrame(() => {
+                    updateCanvasOffset();
+                    updateCropOverlay();
+                });
             }
 
-            showProgress('Complete', 100);
-            updateCropOverlay();
-        } catch (err) {
-            console.error('Detection error:', err);
-            setDefaultCropArea();
-            elements.detectionStatus.textContent = 'Detection error - adjust manually';
-            elements.detectionStatus.className = 'detection-status warning';
-            updateCropOverlay();
-        }
-
-        setTimeout(() => {
-            elements.loadingOverlay.classList.remove('active');
-        }, 300);
-    }, 50);
+            setTimeout(() => {
+                elements.loadingOverlay.classList.remove('active');
+            }, 300);
+        }, 100);
+    });
 }
 
 function findDocumentContour() {
@@ -1115,11 +1150,14 @@ function clampCornersToCanvas() {
 }
 
 function resetCropArea() {
+    // Always set default full-screen crop first so user can see something
+    setDefaultCropArea();
+    updateCanvasOffset();
+    updateCropOverlay();
+
+    // Then try to detect edges if OpenCV is ready
     if (state.cvReady) {
         detectEdges();
-    } else {
-        setDefaultCropArea();
-        updateCropOverlay();
     }
 }
 
@@ -1130,10 +1168,17 @@ function updateCropOverlay() {
 
     const corners = state.cropCorners;
     const offset = state.canvasOffset;
+    const container = elements.editorCanvasContainer;
+    const containerRect = container.getBoundingClientRect();
 
+    // Set SVG viewBox to match container size
+    elements.cropSvg.setAttribute('viewBox', `0 0 ${containerRect.width} ${containerRect.height}`);
+
+    // Create polygon points with offset
     const pointsStr = corners.map(p => `${p.x + offset.x},${p.y + offset.y}`).join(' ');
     elements.cropPolygon.setAttribute('points', pointsStr);
 
+    // Update handles and lines
     corners.forEach((corner, i) => {
         const x = corner.x + offset.x;
         const y = corner.y + offset.y;
@@ -1155,7 +1200,21 @@ function startDrag(e, index) {
     e.preventDefault();
     saveState();
     state.activeHandle = index;
+    state.dragStartZoom = state.zoom; // Store original zoom
     vibrate(10);
+
+    // Auto-zoom to the corner being adjusted for better precision
+    if (state.zoom < 1.5) {
+        state.zoom = 2;
+        // Center zoom on the handle being dragged
+        const corner = state.cropCorners[index];
+        const canvas = elements.editorCanvas;
+        state.panOffset = {
+            x: -(corner.x - canvas.width / 2) * 0.5,
+            y: -(corner.y - canvas.height / 2) * 0.5
+        };
+        applyZoom();
+    }
 }
 
 function handleDrag(e) {
@@ -1174,14 +1233,24 @@ function handleDrag(e) {
         clientY = e.clientY;
     }
 
-    const x = (clientX - containerRect.left - state.canvasOffset.x) / state.zoom;
-    const y = (clientY - containerRect.top - state.canvasOffset.y) / state.zoom;
+    // Calculate position accounting for zoom and pan
+    const x = (clientX - containerRect.left - state.canvasOffset.x - state.panOffset.x * state.zoom) / state.zoom;
+    const y = (clientY - containerRect.top - state.canvasOffset.y - state.panOffset.y * state.zoom) / state.zoom;
 
     const canvas = elements.editorCanvas;
     const clampedX = Math.max(0, Math.min(x, canvas.width));
     const clampedY = Math.max(0, Math.min(y, canvas.height));
 
     state.cropCorners[state.activeHandle] = { x: clampedX, y: clampedY };
+
+    // Update pan to follow the corner if zoomed in
+    if (state.zoom > 1) {
+        state.panOffset = {
+            x: -(clampedX - canvas.width / 2) * 0.5,
+            y: -(clampedY - canvas.height / 2) * 0.5
+        };
+        applyZoom();
+    }
 
     if (state.aspectRatio !== 'free') {
         applyAspectRatioToHandle(state.activeHandle);
@@ -1198,7 +1267,18 @@ function applyAspectRatioToHandle(handleIndex) {
 }
 
 function endDrag() {
+    if (state.activeHandle !== null) {
+        // Reset zoom after drag if it was auto-zoomed
+        if (state.dragStartZoom !== undefined && state.dragStartZoom < 1.5) {
+            setTimeout(() => {
+                state.zoom = 1;
+                state.panOffset = { x: 0, y: 0 };
+                applyZoom();
+            }, 300);
+        }
+    }
     state.activeHandle = null;
+    state.dragStartZoom = undefined;
 }
 
 // Perform crop
