@@ -1,60 +1,84 @@
 # Auto Crop Photo Tool
 
-A free, browser-based auto-crop tool for documents, receipts, and photos. All processing happens locally - no data leaves your device.
+A free, browser-based auto-crop tool for documents, receipts, and photos. **100% client-side** - no data leaves your device. Fast, private, and works offline.
 
 ## Features
 
-- **Auto Edge Detection**: Uses OpenCV.js to automatically detect document edges
-- **Perspective Correction**: Straightens photos taken at angles
-- **Manual Adjustment**: Drag corners to fine-tune crop area
-- **Camera Capture**: Take photos directly from your device camera
-- **Image Upload**: Support for JPG, PNG, and WEBP formats
-- **Auto Download**: Cropped images automatically download
-- **100% Private**: All processing is client-side, no server uploads
-- **Mobile Responsive**: Works on phones, tablets, and desktops
-- **Works Offline**: After initial load, works without internet
+### Core Features
+- **Auto Edge Detection** - OpenCV.js automatically detects document edges
+- **Perspective Correction** - Straightens photos taken at angles
+- **Manual Corner Adjustment** - Drag corners to fine-tune
+- **Camera Capture** - Take photos directly with flash & brightness controls
 
-## Demo
+### New Features
+- **Image Rotation** - Rotate 90° left/right (keyboard: R)
+- **Zoom & Pan** - Pinch-to-zoom or use +/- buttons for precise editing
+- **Grid Overlay** - Rule of thirds grid (keyboard: G)
+- **Aspect Ratio Presets** - A4, Letter, Square, ID Card, Passport, 4:3, 16:9
+- **Undo/Redo** - Undo corner adjustments (Ctrl+Z / Ctrl+Y)
+- **Batch Mode** - Process multiple images in sequence
+- **Custom Output Size** - Set exact width/height in pixels
+- **Export Formats** - JPG, PNG, or PDF output
+- **Quality Control** - Adjust JPG compression quality
+- **Edge Sharpening** - Enhance edges after cropping
+- **Auto Enhance** - Automatic brightness/contrast optimization
+- **Progress Indicator** - Loading progress with percentage
+- **Haptic Feedback** - Vibration feedback on mobile
+- **Sound Effects** - Audio feedback (toggleable)
+- **Keyboard Shortcuts** - Full keyboard support
 
-Open `index.html` in a modern browser or deploy to any static hosting service.
+### Privacy & Performance
+- **100% Private** - All processing happens in your browser
+- **No Server** - No uploads, no APIs, no tracking
+- **Works Offline** - After initial load, works without internet
+- **Fast** - Optimized for quick processing
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| R | Rotate right |
+| Shift+R | Rotate left |
+| G | Toggle grid |
+| + | Zoom in |
+| - | Zoom out |
+| 0 | Reset zoom |
+| Ctrl+Z | Undo |
+| Ctrl+Y | Redo |
+| Enter | Confirm crop |
 
 ## Deployment
 
-### Option 1: GitHub Pages (Recommended)
-
+### GitHub Pages (Free)
 1. Create a new GitHub repository
-2. Upload all files (`index.html`, `styles.css`, `app.js`, `README.md`)
-3. Go to repository Settings > Pages
-4. Select "Deploy from a branch"
-5. Choose `main` branch and `/ (root)` folder
-6. Click Save
-7. Your site will be available at `https://yourusername.github.io/repo-name`
+2. Upload all files
+3. Go to Settings → Pages
+4. Select "Deploy from main branch"
+5. Your site will be at `https://yourusername.github.io/repo-name`
 
-### Option 2: Vercel
+### Vercel (Free)
+```bash
+npx vercel
+```
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. Navigate to project folder
-3. Run `vercel`
-4. Follow prompts to deploy
-5. Or connect your GitHub repo at [vercel.com](https://vercel.com)
+### Netlify (Free)
+Drag and drop the project folder at [netlify.com](https://netlify.com)
 
-### Option 3: Netlify
-
-1. Go to [netlify.com](https://netlify.com)
-2. Drag and drop the project folder to deploy
-3. Or connect your GitHub repo for automatic deployments
-
-### Option 4: Local Use
-
-Simply open `index.html` in any modern browser. Note that camera functionality requires HTTPS or localhost.
+### Local Development
+```bash
+npx serve .
+```
+Or simply open `index.html` in a browser.
 
 ## Technical Details
 
 ### Tech Stack
 - Pure HTML5, CSS3, JavaScript (ES6+)
 - OpenCV.js 4.9.0 for edge detection
+- jsPDF for PDF export
+- Web Audio API for sound
+- Vibration API for haptics
 - No build tools required
-- No backend dependencies
 
 ### Browser Support
 - Chrome 80+
@@ -62,62 +86,31 @@ Simply open `index.html` in any modern browser. Note that camera functionality r
 - Safari 14+
 - Edge 80+
 
-### Edge Detection Algorithm
-
-1. Convert image to grayscale
-2. Apply Gaussian blur to reduce noise
-3. Use adaptive thresholding for varying lighting conditions
-4. Apply Canny edge detection
-5. Dilate edges to close gaps
-6. Find contours and identify largest quadrilateral
-7. Order corners and apply perspective transform
-
-### Privacy
-
-- No data is sent to any server
-- No analytics or tracking
-- No cookies or local storage of images
-- All processing happens in your browser
+### External Dependencies (Free CDN)
+- OpenCV.js - Edge detection
+- jsPDF - PDF export
 
 ## Files
 
 ```
 auto-crop-tool/
-├── index.html    # Main HTML structure
-├── styles.css    # All styling
-├── app.js        # Application logic
-└── README.md     # This file
+├── index.html     # Main HTML (22KB)
+├── styles.css     # All styling (20KB)
+├── app.js         # Application logic (52KB)
+├── package.json   # For dev server
+├── vercel.json    # Vercel config
+├── .gitignore     # Git ignore
+└── README.md      # This file
 ```
 
-## Usage
+## Usage Flow
 
-1. Open the app in a browser
-2. Choose "Upload Photo" or "Take Photo"
-3. Wait for automatic edge detection
-4. Adjust corners by dragging if needed
-5. Click "Confirm Crop"
-6. Image downloads automatically
-7. Click "Crop Another Photo" to continue
-
-## Troubleshooting
-
-**Camera not working:**
-- Ensure you've granted camera permissions
-- Use HTTPS or localhost (required for camera access)
-- Try a different browser
-
-**Edge detection not working:**
-- OpenCV.js may still be loading (wait a few seconds)
-- For complex backgrounds, use manual adjustment
-
-**Slow performance:**
-- Large images may take longer to process
-- Try reducing image size before upload
+1. **Upload or Capture** - Choose photo or use camera
+2. **Auto Detection** - Edges detected automatically
+3. **Adjust** - Rotate, zoom, drag corners
+4. **Preview** - Set size, format, enhancements
+5. **Download** - Save as JPG, PNG, or PDF
 
 ## License
 
-MIT License - Feel free to use, modify, and distribute.
-
-## Contributing
-
-Contributions welcome! Please open an issue or pull request.
+MIT License - Free for personal and commercial use.
