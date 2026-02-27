@@ -52,12 +52,8 @@ const elements = {};
 const aspectRatios = {
     'free': null,
     'a4': 210 / 297,
-    'letter': 8.5 / 11,
-    'square': 1,
-    '4:3': 4 / 3,
-    '16:9': 16 / 9,
     'id-card': 85.6 / 53.98,
-    'passport': 35 / 45
+   
 };
 
 // Initialize
