@@ -22,7 +22,6 @@ const state = {
     rotation: 0,
     zoom: 1,
     panOffset: { x: 0, y: 0 },
-    dragStartZoom: undefined,
     isDragging: false,
     lastPinchDistance: 0,
     gridVisible: false,
@@ -1200,21 +1199,7 @@ function startDrag(e, index) {
     e.preventDefault();
     saveState();
     state.activeHandle = index;
-    state.dragStartZoom = state.zoom; // Store original zoom
     vibrate(10);
-
-    // Auto-zoom to the corner being adjusted for better precision
-    if (state.zoom < 1.5) {
-        state.zoom = 2;
-        // Center zoom on the handle being dragged
-        const corner = state.cropCorners[index];
-        const canvas = elements.editorCanvas;
-        state.panOffset = {
-            x: -(corner.x - canvas.width / 2) * 0.5,
-            y: -(corner.y - canvas.height / 2) * 0.5
-        };
-        applyZoom();
-    }
 }
 
 function handleDrag(e) {
@@ -1243,15 +1228,6 @@ function handleDrag(e) {
 
     state.cropCorners[state.activeHandle] = { x: clampedX, y: clampedY };
 
-    // Update pan to follow the corner if zoomed in
-    if (state.zoom > 1) {
-        state.panOffset = {
-            x: -(clampedX - canvas.width / 2) * 0.5,
-            y: -(clampedY - canvas.height / 2) * 0.5
-        };
-        applyZoom();
-    }
-
     if (state.aspectRatio !== 'free') {
         applyAspectRatioToHandle(state.activeHandle);
     }
@@ -1267,18 +1243,7 @@ function applyAspectRatioToHandle(handleIndex) {
 }
 
 function endDrag() {
-    if (state.activeHandle !== null) {
-        // Reset zoom after drag if it was auto-zoomed
-        if (state.dragStartZoom !== undefined && state.dragStartZoom < 1.5) {
-            setTimeout(() => {
-                state.zoom = 1;
-                state.panOffset = { x: 0, y: 0 };
-                applyZoom();
-            }, 300);
-        }
-    }
     state.activeHandle = null;
-    state.dragStartZoom = undefined;
 }
 
 // Perform crop
