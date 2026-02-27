@@ -532,12 +532,14 @@ function setupEditor() {
     }
 
     const containerRect = container.getBoundingClientRect();
-    const maxWidth = containerRect.width;
-    const maxHeight = containerRect.height;
+    // Use slightly smaller area to ensure crop handles are visible
+    const maxWidth = containerRect.width - 40;
+    const maxHeight = containerRect.height - 40;
 
     const scaleX = maxWidth / drawWidth;
     const scaleY = maxHeight / drawHeight;
-    state.scale = Math.min(scaleX, scaleY, 1);
+    // Always scale to fit within container (never larger than container)
+    state.scale = Math.min(scaleX, scaleY);
 
     canvas.width = drawWidth * state.scale;
     canvas.height = drawHeight * state.scale;
@@ -823,6 +825,8 @@ function detectEdges() {
 
             if (result && result.length === 4) {
                 state.cropCorners = result;
+                // Ensure detected corners are within canvas bounds
+                clampCornersToCanvas();
                 elements.detectionStatus.textContent = 'Document detected - adjust if needed';
                 elements.detectionStatus.className = 'detection-status success';
             } else {
@@ -851,10 +855,12 @@ function findDocumentContour() {
     const canvas = elements.editorCanvas;
     let src = cv.imread(canvas);
     let gray = new cv.Mat();
+    let enhanced = new cv.Mat();
 
     try {
         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
+        // Try with original grayscale first
         const methods = [
             () => detectWithCanny(gray, 75, 200),
             () => detectWithCanny(gray, 50, 150),
@@ -867,10 +873,54 @@ function findDocumentContour() {
             const result = method();
             if (result) return result;
         }
+
+        // If no result, try with contrast enhanced image
+        cv.equalizeHist(gray, enhanced);
+        const enhancedMethods = [
+            () => detectWithCanny(enhanced, 50, 150),
+            () => detectWithCanny(enhanced, 30, 100),
+            () => detectWithAdaptiveThreshold(enhanced),
+            () => detectWithContrastBoost(gray)
+        ];
+
+        for (const method of enhancedMethods) {
+            const result = method();
+            if (result) return result;
+        }
+
         return null;
     } finally {
         src.delete();
         gray.delete();
+        enhanced.delete();
+    }
+}
+
+function detectWithContrastBoost(gray) {
+    let boosted = new cv.Mat();
+    let edges = new cv.Mat();
+    let dilated = new cv.Mat();
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
+
+    try {
+        // Apply CLAHE for better contrast
+        let clahe = new cv.CLAHE(3.0, new cv.Size(8, 8));
+        clahe.apply(gray, boosted);
+
+        cv.GaussianBlur(boosted, boosted, new cv.Size(5, 5), 0);
+        cv.Canny(boosted, edges, 40, 120);
+        let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+        cv.dilate(edges, dilated, kernel, new cv.Point(-1, -1), 3);
+        kernel.delete();
+        cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        return findBestQuadrilateral(contours, gray.cols, gray.rows);
+    } finally {
+        boosted.delete();
+        edges.delete();
+        dilated.delete();
+        contours.delete();
+        hierarchy.delete();
     }
 }
 
@@ -945,8 +995,9 @@ function findBestQuadrilateral(contours, width, height) {
     let bestContour = null;
     let maxScore = 0;
     const imageArea = width * height;
-    const minArea = imageArea * 0.05;
-    const maxArea = imageArea * 0.98;
+    // Lower minimum area to detect smaller documents
+    const minArea = imageArea * 0.02;
+    const maxArea = imageArea * 0.99;
 
     for (let i = 0; i < contours.size(); i++) {
         const contour = contours.get(i);
@@ -955,20 +1006,27 @@ function findBestQuadrilateral(contours, width, height) {
 
         const peri = cv.arcLength(contour, true);
         const approx = new cv.Mat();
-        cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+        // Try different approximation tolerances
+        const tolerances = [0.02, 0.03, 0.04, 0.05];
 
-        if (approx.rows === 4) {
-            const score = scoreQuadrilateral(approx, area, imageArea);
-            if (score > maxScore) {
-                maxScore = score;
-                if (bestContour) bestContour.delete();
-                bestContour = approx.clone();
+        for (const tol of tolerances) {
+            cv.approxPolyDP(contour, approx, tol * peri, true);
+
+            if (approx.rows === 4) {
+                const score = scoreQuadrilateral(approx, area, imageArea);
+                if (score > maxScore) {
+                    maxScore = score;
+                    if (bestContour) bestContour.delete();
+                    bestContour = approx.clone();
+                }
+                break; // Found a quad with this contour
             }
         }
         approx.delete();
     }
 
-    if (bestContour && maxScore > 0.1) {
+    // Lower threshold to accept more detections
+    if (bestContour && maxScore > 0.05) {
         const points = [];
         for (let i = 0; i < 4; i++) {
             points.push({ x: bestContour.data32S[i * 2], y: bestContour.data32S[i * 2 + 1] });
@@ -982,18 +1040,39 @@ function findBestQuadrilateral(contours, width, height) {
 }
 
 function scoreQuadrilateral(approx, area, imageArea) {
-    if (!cv.isContourConvex(approx)) return 0;
+    // Allow slightly non-convex shapes (perspective distortion)
     const points = [];
     for (let i = 0; i < 4; i++) {
         points.push({ x: approx.data32S[i * 2], y: approx.data32S[i * 2 + 1] });
     }
 
+    // Check if shape is roughly convex (allow some tolerance)
+    if (!cv.isContourConvex(approx)) {
+        // Still allow if angles are reasonable
+        let validShape = true;
+        for (let i = 0; i < 4; i++) {
+            const angle = calculateAngle(points[i], points[(i + 1) % 4], points[(i + 2) % 4]);
+            if (angle < 30 || angle > 150) {
+                validShape = false;
+                break;
+            }
+        }
+        if (!validShape) return 0;
+    }
+
+    // Score based on angles being close to 90 degrees (allow more tolerance)
     let angleScore = 0;
     for (let i = 0; i < 4; i++) {
         const angle = calculateAngle(points[i], points[(i + 1) % 4], points[(i + 2) % 4]);
-        angleScore += Math.max(0, 1 - Math.abs(angle - 90) / 45);
+        // More lenient angle scoring - allow angles between 60-120 degrees
+        angleScore += Math.max(0, 1 - Math.abs(angle - 90) / 60);
     }
-    return (angleScore / 4) * 0.6 + (Math.min(area / imageArea, 0.9) / 0.9) * 0.4;
+
+    // Score based on area - prefer larger documents
+    const areaScore = Math.min(area / imageArea, 0.95) / 0.95;
+
+    // Combined score with higher weight on area
+    return (angleScore / 4) * 0.4 + areaScore * 0.6;
 }
 
 function calculateAngle(p1, p2, p3) {
@@ -1014,13 +1093,25 @@ function orderPoints(points) {
 
 function setDefaultCropArea() {
     const canvas = elements.editorCanvas;
-    const padding = Math.min(canvas.width, canvas.height) * 0.1;
+    // Use smaller padding (5%) for near full-screen crop on reset
+    const padding = Math.min(canvas.width, canvas.height) * 0.05;
     state.cropCorners = [
         { x: padding, y: padding },
         { x: canvas.width - padding, y: padding },
         { x: canvas.width - padding, y: canvas.height - padding },
         { x: padding, y: canvas.height - padding }
     ];
+}
+
+// Clamp corners to ensure they stay within canvas bounds
+function clampCornersToCanvas() {
+    const canvas = elements.editorCanvas;
+    const minPadding = 10; // Minimum padding from edge
+
+    state.cropCorners = state.cropCorners.map(corner => ({
+        x: Math.max(minPadding, Math.min(corner.x, canvas.width - minPadding)),
+        y: Math.max(minPadding, Math.min(corner.y, canvas.height - minPadding))
+    }));
 }
 
 function resetCropArea() {
