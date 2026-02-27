@@ -1,0 +1,17 @@
+{
+  "name": "auto-crop-tool",
+  "version": "1.0.0",
+  "description": "Browser-based auto-crop photo tool with edge detection",
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "crop",
+    "document-scanner",
+    "edge-detection",
+    "opencv",
+    "photo-editor"
+  ],
+  "license": "MIT"
+}

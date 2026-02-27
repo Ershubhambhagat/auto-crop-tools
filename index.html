@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Auto Crop Photo Tool</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Landing Screen -->
+        <div id="landing-screen" class="screen active">
+            <div class="container">
+                <h1>📄 Auto Crop</h1>
+                <p class="subtitle">Automatically detect and crop documents, receipts, and photos</p>
+
+                <div class="button-group">
+                    <button id="upload-btn" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17,8 12,3 7,8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Upload Photo
+                    </button>
+                    <button id="camera-btn" class="btn btn-secondary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                        Take Photo
+                    </button>
+                </div>
+
+                <input type="file" id="file-input" accept="image/*" hidden>
+
+                <div class="features">
+                    <div class="feature">
+                        <span class="feature-icon">🎯</span>
+                        <span>Auto-detect edges</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">📐</span>
+                        <span>Perspective correction</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">✋</span>
+                        <span>Manual adjustment</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🔒</span>
+                        <span>100% private - runs locally</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Screen -->
+        <div id="camera-screen" class="screen">
+            <div class="camera-container">
+                <video id="camera-video" autoplay playsinline></video>
+                <div class="camera-overlay">
+                    <div class="camera-guide"></div>
+                </div>
+                <div class="camera-controls">
+                    <button id="camera-cancel" class="btn btn-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                    <button id="camera-capture" class="btn btn-capture">
+                        <div class="capture-inner"></div>
+                    </button>
+                    <button id="camera-switch" class="btn btn-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 16v4a2 2 0 0 1-2 2h-4"/>
+                            <path d="M4 8V4a2 2 0 0 1 2-2h4"/>
+                            <polyline points="15,19 20,16 20,21"/>
+                            <polyline points="9,5 4,8 4,3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Screen -->
+        <div id="editor-screen" class="screen">
+            <div class="editor-header">
+                <button id="editor-back" class="btn btn-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15,18 9,12 15,6"/>
+                    </svg>
+                    Back
+                </button>
+                <span class="editor-title">Adjust Crop Area</span>
+                <button id="editor-reset" class="btn btn-text">Reset</button>
+            </div>
+
+            <div class="editor-canvas-container">
+                <canvas id="editor-canvas"></canvas>
+                <div id="crop-overlay">
+                    <svg id="crop-svg" class="crop-svg">
+                        <polygon id="crop-polygon" class="crop-polygon"/>
+                        <line id="crop-line-0" class="crop-line"/>
+                        <line id="crop-line-1" class="crop-line"/>
+                        <line id="crop-line-2" class="crop-line"/>
+                        <line id="crop-line-3" class="crop-line"/>
+                        <circle id="crop-handle-0" class="crop-handle" r="12"/>
+                        <circle id="crop-handle-1" class="crop-handle" r="12"/>
+                        <circle id="crop-handle-2" class="crop-handle" r="12"/>
+                        <circle id="crop-handle-3" class="crop-handle" r="12"/>
+                    </svg>
+                </div>
+                <div id="loading-overlay" class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>Detecting edges...</p>
+                </div>
+            </div>
+
+            <div class="editor-info">
+                <span id="detection-status" class="detection-status"></span>
+            </div>
+
+            <div class="editor-actions">
+                <button id="confirm-crop" class="btn btn-primary btn-large">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20,6 9,17 4,12"/>
+                    </svg>
+                    Confirm Crop
+                </button>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen">
+            <div class="result-container">
+                <h2>Crop Complete!</h2>
+                <div class="result-preview">
+                    <canvas id="result-canvas"></canvas>
+                </div>
+                <p class="result-info" id="result-info"></p>
+                <div class="result-actions">
+                    <button id="download-again" class="btn btn-secondary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7,10 12,15 17,10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Again
+                    </button>
+                    <button id="crop-another" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Crop Another Photo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div id="error-modal" class="modal">
+            <div class="modal-content">
+                <h3>Error</h3>
+                <p id="error-message"></p>
+                <button id="error-close" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady()"></script>
+    <script src="app.js"></script>
+</body>
+</html>
