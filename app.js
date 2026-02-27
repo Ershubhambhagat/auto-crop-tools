@@ -586,19 +586,18 @@ function updateCanvasOffset() {
     const canvasRect = canvas.getBoundingClientRect();
 
     // Calculate offset from container edge to canvas edge
+    // Note: offset can be negative when canvas is zoomed beyond container bounds
     let offsetX = canvasRect.left - containerRect.left;
     let offsetY = canvasRect.top - containerRect.top;
 
-    // Ensure valid offsets (fallback to center calculation if invalid)
-    if (isNaN(offsetX) || isNaN(offsetY) || offsetX < 0 || offsetY < 0) {
-        offsetX = (containerRect.width - canvas.width) / 2;
-        offsetY = (containerRect.height - canvas.height) / 2;
+    // Fallback only for NaN values, not negative (negative is valid when zoomed)
+    if (isNaN(offsetX) || isNaN(offsetY)) {
+        // Use center calculation accounting for zoom
+        offsetX = (containerRect.width - canvas.width * state.zoom) / 2;
+        offsetY = (containerRect.height - canvas.height * state.zoom) / 2;
     }
 
-    state.canvasOffset = {
-        x: Math.max(0, offsetX),
-        y: Math.max(0, offsetY)
-    };
+    state.canvasOffset = { x: offsetX, y: offsetY };
 }
 
 // Rotation
