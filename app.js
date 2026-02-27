@@ -684,38 +684,46 @@ function updateGridLines() {
 
     const corners = state.cropCorners;
     const offset = state.canvasOffset;
+    const zoom = state.zoom;
+    const pan = state.panOffset;
+
+    // Transform point from canvas coords to screen coords
+    const transformPoint = (p) => ({
+        x: p.x * zoom + pan.x * zoom + offset.x,
+        y: p.y * zoom + pan.y * zoom + offset.y
+    });
 
     // Calculate thirds
     const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
-    const top1 = lerp(corners[0], corners[1], 1/3);
-    const top2 = lerp(corners[0], corners[1], 2/3);
-    const bottom1 = lerp(corners[3], corners[2], 1/3);
-    const bottom2 = lerp(corners[3], corners[2], 2/3);
-    const left1 = lerp(corners[0], corners[3], 1/3);
-    const left2 = lerp(corners[0], corners[3], 2/3);
-    const right1 = lerp(corners[1], corners[2], 1/3);
-    const right2 = lerp(corners[1], corners[2], 2/3);
+    const top1 = transformPoint(lerp(corners[0], corners[1], 1/3));
+    const top2 = transformPoint(lerp(corners[0], corners[1], 2/3));
+    const bottom1 = transformPoint(lerp(corners[3], corners[2], 1/3));
+    const bottom2 = transformPoint(lerp(corners[3], corners[2], 2/3));
+    const left1 = transformPoint(lerp(corners[0], corners[3], 1/3));
+    const left2 = transformPoint(lerp(corners[0], corners[3], 2/3));
+    const right1 = transformPoint(lerp(corners[1], corners[2], 1/3));
+    const right2 = transformPoint(lerp(corners[1], corners[2], 2/3));
 
-    elements.gridLines.v1.setAttribute('x1', top1.x + offset.x);
-    elements.gridLines.v1.setAttribute('y1', top1.y + offset.y);
-    elements.gridLines.v1.setAttribute('x2', bottom1.x + offset.x);
-    elements.gridLines.v1.setAttribute('y2', bottom1.y + offset.y);
+    elements.gridLines.v1.setAttribute('x1', top1.x);
+    elements.gridLines.v1.setAttribute('y1', top1.y);
+    elements.gridLines.v1.setAttribute('x2', bottom1.x);
+    elements.gridLines.v1.setAttribute('y2', bottom1.y);
 
-    elements.gridLines.v2.setAttribute('x1', top2.x + offset.x);
-    elements.gridLines.v2.setAttribute('y1', top2.y + offset.y);
-    elements.gridLines.v2.setAttribute('x2', bottom2.x + offset.x);
-    elements.gridLines.v2.setAttribute('y2', bottom2.y + offset.y);
+    elements.gridLines.v2.setAttribute('x1', top2.x);
+    elements.gridLines.v2.setAttribute('y1', top2.y);
+    elements.gridLines.v2.setAttribute('x2', bottom2.x);
+    elements.gridLines.v2.setAttribute('y2', bottom2.y);
 
-    elements.gridLines.h1.setAttribute('x1', left1.x + offset.x);
-    elements.gridLines.h1.setAttribute('y1', left1.y + offset.y);
-    elements.gridLines.h1.setAttribute('x2', right1.x + offset.x);
-    elements.gridLines.h1.setAttribute('y2', right1.y + offset.y);
+    elements.gridLines.h1.setAttribute('x1', left1.x);
+    elements.gridLines.h1.setAttribute('y1', left1.y);
+    elements.gridLines.h1.setAttribute('x2', right1.x);
+    elements.gridLines.h1.setAttribute('y2', right1.y);
 
-    elements.gridLines.h2.setAttribute('x1', left2.x + offset.x);
-    elements.gridLines.h2.setAttribute('y1', left2.y + offset.y);
-    elements.gridLines.h2.setAttribute('x2', right2.x + offset.x);
-    elements.gridLines.h2.setAttribute('y2', right2.y + offset.y);
+    elements.gridLines.h2.setAttribute('x1', left2.x);
+    elements.gridLines.h2.setAttribute('y1', left2.y);
+    elements.gridLines.h2.setAttribute('x2', right2.x);
+    elements.gridLines.h2.setAttribute('y2', right2.y);
 }
 
 // Aspect Ratio
@@ -1167,27 +1175,38 @@ function updateCropOverlay() {
 
     const corners = state.cropCorners;
     const offset = state.canvasOffset;
+    const zoom = state.zoom;
+    const pan = state.panOffset;
     const container = elements.editorCanvasContainer;
     const containerRect = container.getBoundingClientRect();
 
     // Set SVG viewBox to match container size
     elements.cropSvg.setAttribute('viewBox', `0 0 ${containerRect.width} ${containerRect.height}`);
 
-    // Create polygon points with offset
-    const pointsStr = corners.map(p => `${p.x + offset.x},${p.y + offset.y}`).join(' ');
+    // Transform corner from canvas coords to screen coords (accounting for zoom and pan)
+    const transformPoint = (p) => ({
+        x: p.x * zoom + pan.x * zoom + offset.x,
+        y: p.y * zoom + pan.y * zoom + offset.y
+    });
+
+    // Create polygon points with zoom and pan transform
+    const pointsStr = corners.map(p => {
+        const tp = transformPoint(p);
+        return `${tp.x},${tp.y}`;
+    }).join(' ');
     elements.cropPolygon.setAttribute('points', pointsStr);
 
     // Update handles and lines
     corners.forEach((corner, i) => {
-        const x = corner.x + offset.x;
-        const y = corner.y + offset.y;
-        elements.cropHandles[i].setAttribute('cx', x);
-        elements.cropHandles[i].setAttribute('cy', y);
+        const tp = transformPoint(corner);
+        elements.cropHandles[i].setAttribute('cx', tp.x);
+        elements.cropHandles[i].setAttribute('cy', tp.y);
         const next = corners[(i + 1) % 4];
-        elements.cropLines[i].setAttribute('x1', x);
-        elements.cropLines[i].setAttribute('y1', y);
-        elements.cropLines[i].setAttribute('x2', next.x + offset.x);
-        elements.cropLines[i].setAttribute('y2', next.y + offset.y);
+        const tpNext = transformPoint(next);
+        elements.cropLines[i].setAttribute('x1', tp.x);
+        elements.cropLines[i].setAttribute('y1', tp.y);
+        elements.cropLines[i].setAttribute('x2', tpNext.x);
+        elements.cropLines[i].setAttribute('y2', tpNext.y);
     });
 
     updateGridLines();
